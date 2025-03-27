@@ -14,17 +14,26 @@ function Login() {
   };
 
   return (
-    <Container>
-      <Typography variant="h4">WebSocket Login Client</Typography>
+    <Container sx={
+      {display:'flex',
+        flexDirection:"column",
+        width:"40%"
+
+    }}>
+      <Typography variant="h4"sx={
+        {
+        alignSelf:'center'
+      }}>Live Chat Login:</Typography>
       <TextField
-        label="Alias"
+        label="Nombre de Usuario"
         value={alias}
         onChange={(e) => setAlias(e.target.value)}
         fullWidth
         margin="normal"
+        variant='filled'
       />
       <Button variant="contained" color="primary" onClick={handleAliasSubmit}>
-        Set Alias
+        Iniciar
       </Button>
     </Container>
   );

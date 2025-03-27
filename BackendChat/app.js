@@ -23,11 +23,6 @@ io.on('connection',(socket)=>{
 
   websocketConfig(socket,io)
 
-  socket.on('disconnect', () => {
-    console.log(`user ${socket.alias} disconnected`);
-    connectedUsers.delete(socket.alias);
-    io.emit('freshUsers', JSON.stringify({ type: 'freshUsers', users: Array.from(connectedUsers) }));
-  });
 });
 
 server.listen(process.env.APP_PORTHTTP, () => {

@@ -10,31 +10,32 @@ function WebSocketComponent() {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [users, setUsers] = useState([]);
+  const [isLoggedIn, setIsLoggedIn] = useState(false); 
   const location = useLocation();
 
+
+
   useEffect(() => {
-    if (location.state.alias) {
+    if (location.state.alias && !isLoggedIn) { // Verifica si no ha iniciado sesión
       setAlias(location.state.alias);
-      socket.emit('login', JSON.stringify({ type: 'setAlias', message: location.state.alias }));
+      socket.emit('user:login', JSON.stringify({ type: 'login', message: location.state.alias }));
+      setIsLoggedIn(true); // Cambia el estado a true después de iniciar sesión
     }
 
-    socket.on('message', (data) => {
+    socket.on('user:validate', (data) => {
+      setAlias(JSON.parse(data).alias);
+    });
+
+    socket.on('message:public', (data) => {
       try {
         const parsedData = JSON.parse(data);
-        console.log(parsedData);
-        if (parsedData.type === 'alias') {
-          setAlias(parsedData.alias);
-        } else if (parsedData.type === 'freshUsers') {
-          setUsers(parsedData.users);
-        } else {
-          setMessages((prevMessages) => [...prevMessages, parsedData]);
-        }
+        setMessages((prevMessages) => [...prevMessages, parsedData]);
       } catch (e) {
         setMessages((prevMessages) => [...prevMessages, data]);
       }
     });
 
-    socket.on('freshUsers', (data) => {
+    socket.on('user:list', (data) => {
       try {
         const parsedData = JSON.parse(data);
         setUsers(parsedData.users);
@@ -44,23 +45,41 @@ function WebSocketComponent() {
     });
 
     return () => {
-      socket.off('message');
-      socket.off('freshUsers');
+      socket.off('message:public');
+      socket.off('user:validate');
+      socket.off('user:list');
+      
     };
-  }, [location.state.alias]);
+  }, [location.state.alias, isLoggedIn]); 
+
 
   const handleMessageSubmit = () => {
-    socket.emit('message', JSON.stringify({ type: 'message', message: message }));
+    console.log(message)
+    socket.emit('user:send', JSON.stringify({ type: 'public', message: message }));
     setMessage('');
   };
 
   return (
-    <Container>
-      <Typography variant="h4">WebSocket Client ("{alias}")</Typography>
-      <div style={{ display: 'flex' }}>
-        <Paper style={{ marginRight: '10px', padding: '10px' }}>
+    <Container style={
+      {display:'flex',
+        flexDirection:"column",
+        width:"90%",
+
+    }} >
+      <Typography variant="h4"
+      style={
+        {
+        alignSelf:'center',
+      }}
+      >Live Chat (usuario: {alias})</Typography>
+      <div style={{ display: 'flex', height:"75vh"}}>
+        <Paper style={{ 
+          marginRight: '10px', 
+          padding: '10px', 
+          width:"100%"
+          }}>
           {messages.map((msg, index) => (
-            <Typography key={index}>{msg.alias}: {msg.message}</Typography>
+            <Typography key={index}>{msg.fromUser}: {msg.message}</Typography>
           ))}
         </Paper>
         <Paper style={{ padding: '10px' }}>
@@ -70,6 +89,7 @@ function WebSocketComponent() {
           ))}
         </Paper>
       </div>
+
       <TextField
         label="Message"
         value={message}
