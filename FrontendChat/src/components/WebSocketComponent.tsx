@@ -3,7 +3,13 @@ import { TextField, Button, Typography, Container, Paper } from '@mui/material';
 import io from 'socket.io-client';
 import { useLocation } from 'react-router-dom';
 
-const socket = io('ws://localhost:8327');
+const socket = io('ws://localhost:8327',
+  {autoConnect: true,
+  reconnection: true,
+  reconnectionAttempts: 10,
+  reconnectionDelay: 1000,
+}
+);
 
 function WebSocketComponent() {
   const [alias, setAlias] = useState('');
