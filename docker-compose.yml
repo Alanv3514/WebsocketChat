@@ -1,0 +1,43 @@
+version: "3.9"
+
+services:
+  frontend:
+    container_name: FrontendChat_Container
+    build: ./FrontendChat
+    ports:
+      - "5173:5173"
+    networks:
+      net_web:
+        ipv4_address: 172.18.0.4
+    depends_on:
+      - backend
+    restart: always
+
+  backend:
+    container_name: BackendChat_Container
+    build: ./BackendChat
+    ports:
+      - "8000:8000"
+    networks:
+      net_web:
+        ipv4_address: 172.18.0.3
+    depends_on:
+      - redisdb
+    restart: always
+
+  redisdb:
+    container_name: RedisDB_Container
+    image: redis/redis-stack-server:latest
+    ports:
+      - "6379:6379"
+    networks:
+      net_web:
+        ipv4_address: 172.18.0.2
+    restart: always
+
+networks:
+  net_web:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.18.0.0/16

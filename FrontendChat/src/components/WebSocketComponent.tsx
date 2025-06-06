@@ -1,31 +1,38 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { TextField, Button, Typography, Container, Paper } from '@mui/material';
 import io from 'socket.io-client';
-import { useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
-const socket = io('ws://localhost:8327',
-  {autoConnect: true,
+const socket = io('ws://localhost:8000', {
+  autoConnect: true,
   reconnection: true,
   reconnectionAttempts: 10,
   reconnectionDelay: 1000,
-}
-);
+});
 
 function WebSocketComponent() {
   const [alias, setAlias] = useState('');
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [users, setUsers] = useState([]);
-  const [isLoggedIn, setIsLoggedIn] = useState(false); 
-  const location = useLocation();
-
-
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const messagesEndRef = useRef(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    if (location.state.alias && !isLoggedIn) { // Verifica si no ha iniciado sesión
-      setAlias(location.state.alias);
-      socket.emit('user:login', JSON.stringify({ type: 'login', message: location.state.alias }));
-      setIsLoggedIn(true); // Cambia el estado a true después de iniciar sesión
+    // Establece alias desde localStorage al cargar
+    const storedAlias = localStorage.getItem('aliasWebchat');
+    if (storedAlias && !isLoggedIn) {
+      setAlias(storedAlias);
+      socket.emit('user:login', JSON.stringify({ type: 'login', message: storedAlias }));
+      setIsLoggedIn(true);
+    }
+    else if(!isLoggedIn){
+      
+      setAlias("anonimo#0404");
+      socket.emit('user:login', JSON.stringify({ type: 'login', message: "anonimo" }));
+      setIsLoggedIn(true);
     }
 
     socket.on('user:validate', (data) => {
@@ -36,8 +43,20 @@ function WebSocketComponent() {
       try {
         const parsedData = JSON.parse(data);
         setMessages((prevMessages) => [...prevMessages, parsedData]);
+        if (document.hidden) {
+          setUnreadMessages((prev) => prev + 1);
+        }
       } catch (e) {
-        setMessages((prevMessages) => [...prevMessages, data]);
+        console.error('Error parsing public message:', e);
+      }
+    });
+
+    socket.on('chat:history', (data) => {
+      try {
+        const parsedData = JSON.parse(data);
+        setMessages([...parsedData.messages]);
+      } catch (e) {
+        console.error('Error parsing chat history:', e);
       }
     });
 
@@ -46,47 +65,52 @@ function WebSocketComponent() {
         const parsedData = JSON.parse(data);
         setUsers(parsedData.users);
       } catch (e) {
-        console.log('Error parsing freshUsers:', e);
+        console.error('Error parsing user list:', e);
       }
     });
 
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        setUnreadMessages(0);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       socket.off('message:public');
+      socket.off('chat:history');
       socket.off('user:validate');
       socket.off('user:list');
-      
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [location.state.alias, isLoggedIn]); 
+  }, [isLoggedIn]);
 
+  useEffect(() => {
+    document.title = unreadMessages > 0
+      ? `(${unreadMessages}) New messages`
+      : 'Live Chat';
+  }, [unreadMessages]);
 
-  const handleMessageSubmit = () => {
-    console.log(message)
-    socket.emit('user:send', JSON.stringify({ type: 'public', message: message }));
-    setMessage('');
+  const handleMessageSubmit = async () => {
+    if (message.trim()) {
+      await socket.emit('user:send', JSON.stringify({ type: 'public', message }));
+      setMessage('');
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
   };
 
   return (
-    <Container style={
-      {display:'flex',
-        flexDirection:"column",
-        width:"90%",
-
-    }} >
-      <Typography variant="h4"
-      style={
-        {
-        alignSelf:'center',
-      }}
-      >Live Chat (usuario: {alias})</Typography>
-      <div style={{ display: 'flex', height:"75vh"}}>
-        <Paper style={{ 
-          marginRight: '10px', 
-          padding: '10px', 
-          width:"100%"
-          }}>
+    <Container style={{ display: 'flex', flexDirection: 'column', width: '90%' }}>
+      <Typography variant="h4" style={{ alignSelf: 'center' }}>
+        Live Chat (usuario: {alias})
+      </Typography>
+      <div style={{ display: 'flex', height: '75vh' }}>
+        <Paper style={{ marginRight: '10px', padding: '10px', width: '100%', overflowY: 'auto' }}>
           {messages.map((msg, index) => (
             <Typography key={index}>{msg.fromUser}: {msg.message}</Typography>
           ))}
+          <div ref={messagesEndRef} />
         </Paper>
         <Paper style={{ padding: '10px' }}>
           <Typography variant="h6">Usuarios conectados:</Typography>
@@ -95,11 +119,15 @@ function WebSocketComponent() {
           ))}
         </Paper>
       </div>
-
       <TextField
         label="Message"
         value={message}
         onChange={(e) => setMessage(e.target.value)}
+        onKeyUp={(e) => {
+          if (e.key === 'Enter') {
+            handleMessageSubmit();
+          }
+        }}
         fullWidth
         margin="normal"
       />

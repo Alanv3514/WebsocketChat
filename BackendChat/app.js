@@ -9,6 +9,7 @@ const app = express();
 
 const server = http.createServer(app);
 
+
 const io = socketIo(server, {
   cors: `http://${corsConfig}`
 });
@@ -25,6 +26,6 @@ io.on('connection',(socket)=>{
 
 });
 
-server.listen(process.env.APP_PORTHTTP, () => {
-  console.log(`listening on *:${process.env.APP_PORTHTTP}`);
+server.listen(8000, () => {
+  console.log(`listening on *:${8000}`);
 });

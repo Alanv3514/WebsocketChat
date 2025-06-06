@@ -1,0 +1,49 @@
+pipeline {
+    agent any
+    stages {
+        stage('Checkout SCM') {
+            steps {
+                checkout scm
+            }
+        }
+        stage('Build Frontend') {
+            steps {
+                script {
+                    dir('FrontendChat') {
+                        sh 'npm install'
+                    }
+                }
+            }
+        }
+        stage('Build Backend') {
+            steps {
+                script {
+                    dir('BackendChat') {
+                        sh 'npm install'
+                    }
+                }
+            }
+        }
+        stage('Build Docker Images') {
+            steps {
+                script {
+                    sh 'docker-compose build'
+                }
+            }
+        }
+        stage('Stop and Remove Containers') {
+            steps {
+                script {
+                    sh 'docker-compose down'
+                }
+            }
+        }
+        stage('Run Docker Containers') {
+            steps {
+                script {
+                    sh 'docker-compose up -d'
+                }
+            }
+        }
+    }
+}
