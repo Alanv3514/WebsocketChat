@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { TextField, Button, Typography, Container, Paper } from '@mui/material';
 import io from 'socket.io-client';
-import { useNavigate } from 'react-router-dom';
 
 const socket = io('ws://localhost:8000', {
   autoConnect: true,
@@ -13,12 +12,11 @@ const socket = io('ws://localhost:8000', {
 function WebSocketComponent() {
   const [alias, setAlias] = useState('');
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState([]);
-  const [users, setUsers] = useState([]);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
-  const messagesEndRef = useRef(null);
-  const navigate = useNavigate();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Establece alias desde localStorage al cargar
