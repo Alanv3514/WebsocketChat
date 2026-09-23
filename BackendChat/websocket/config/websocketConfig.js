@@ -73,6 +73,7 @@ const websocketConfig = (socket, io) => {
 
       if (redisConnected) {
         await redisClient.lPush('messages', JSON.stringify({ fromUser: socket.alias?socket.alias:'anonimo', message: parsedData.message }));
+        await redisClient.lTrim('messages', 0, 199);
         console.log('Message saved to Redis');
       }
     } catch (e) {
