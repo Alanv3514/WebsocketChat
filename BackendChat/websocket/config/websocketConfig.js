@@ -9,8 +9,20 @@ const redisClient = redis.createClient({
   maxRetriesPerRequest: 5
 });
 
+let redisConnected = false;
+
 redisClient.on('error', (err) => {
-  console.error('Redis error:', err);
+  console.error('Redis error:', err.message);
+});
+
+redisClient.on('ready', () => {
+  redisConnected = true;
+  console.log(`✅ Conectado a Redis en ${redisClient.options.socket.host}:${redisClient.options.socket.port}`);
+});
+
+redisClient.on('end', () => {
+  redisConnected = false;
+  console.warn('⚠️ Conexión con Redis cerrada: el chat continúa sin historial');
 });
 
 let connectedUsers = new Set();
@@ -18,9 +30,8 @@ let connectedUsers = new Set();
 (async () => {
   try {
     await redisClient.connect();
-    console.log(`✅ Conectado a Redis en ${redisClient.options.socket.host}:${redisClient.options.socket.port}`);
   } catch (e) {
-    console.error('❌ Error al conectar con Redis:', e);
+    console.error('❌ No se pudo conectar con Redis: el chat funciona sin historial. Detalle:', e.message);
   }
 })();
 
@@ -33,17 +44,21 @@ const websocketConfig = (socket, io) => {
       io.emit('user:validate', JSON.stringify({ type: 'info', alias: socket.alias }));
       io.emit('user:list', JSON.stringify({ type: 'info', users: Array.from(connectedUsers) }));
 
-      const messages = await redisClient.lRange('messages', 0, 19);
-      const parsedMessages = messages.map(msg => {
-        try {
-          return JSON.parse(msg);
-        } catch (e) {
-          console.error('Error parsing message:', e);
-          return null;
-        }
-      }).reverse().filter(msg => msg !== null);
+      if (redisConnected) {
+        const messages = await redisClient.lRange('messages', 0, 19);
+        const parsedMessages = messages.map(msg => {
+          try {
+            return JSON.parse(msg);
+          } catch (e) {
+            console.error('Error parsing message:', e);
+            return null;
+          }
+        }).reverse().filter(msg => msg !== null);
 
-      io.emit('chat:history', JSON.stringify({ type: 'history', messages: parsedMessages }));
+        socket.emit('chat:history', JSON.stringify({ type: 'history', messages: parsedMessages }));
+      } else {
+        console.warn(`Historial no disponible para ${socket.alias}: Redis desconectado`);
+      }
     } catch (e) {
       console.log(e);
       io.emit('error', JSON.stringify({ type: 'error', alias: socket.alias, message: `not send: ${data}` }));
@@ -56,8 +71,10 @@ const websocketConfig = (socket, io) => {
       console.log(`${socket.alias} say to public: ${parsedData.message}`);
       io.emit('message:public', JSON.stringify({ type: 'public', fromUser: `${socket.alias?socket.alias:'anonimo'}`, message: `${parsedData.message}` }));
 
-      await redisClient.lPush('messages', JSON.stringify({ fromUser: socket.alias?socket.alias:'anonimo', message: parsedData.message }));
-      console.log('Message saved to Redis');
+      if (redisConnected) {
+        await redisClient.lPush('messages', JSON.stringify({ fromUser: socket.alias?socket.alias:'anonimo', message: parsedData.message }));
+        console.log('Message saved to Redis');
+      }
     } catch (e) {
       console.log(e);
       io.emit('error', JSON.stringify({ type: 'error', alias: socket.alias, message: `not send: ${data}` }));
