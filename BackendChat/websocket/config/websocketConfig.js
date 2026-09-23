@@ -35,11 +35,23 @@ let connectedUsers = new Set();
   }
 })();
 
+const MAX_ALIAS_LENGTH = 30;
+const MAX_MESSAGE_LENGTH = 500;
+
 const websocketConfig = (socket, io) => {
+  const emitErrorTo = (socket, message) => {
+    socket.emit('error', JSON.stringify({ type: 'error', alias: socket.alias || 'anonimo', message }));
+  };
+
   socket.on('user:login', async (data) => {
     try {
       const parsedData = JSON.parse(data);
-      socket.alias = generateUniqueAlias(parsedData.message, connectedUsers);
+      const baseAlias = typeof parsedData.message === 'string' ? parsedData.message.trim() : '';
+      if (!baseAlias || baseAlias.length > MAX_ALIAS_LENGTH) {
+        emitErrorTo(socket, `Alias inválido: debe tener entre 1 y ${MAX_ALIAS_LENGTH} caracteres`);
+        return;
+      }
+      socket.alias = generateUniqueAlias(baseAlias, connectedUsers);
       connectedUsers.add(socket.alias);
       io.emit('user:validate', JSON.stringify({ type: 'info', alias: socket.alias }));
       io.emit('user:list', JSON.stringify({ type: 'info', users: Array.from(connectedUsers) }));
@@ -61,24 +73,29 @@ const websocketConfig = (socket, io) => {
       }
     } catch (e) {
       console.log(e);
-      io.emit('error', JSON.stringify({ type: 'error', alias: socket.alias, message: `not send: ${data}` }));
+      emitErrorTo(socket, `not send: ${data}`);
     }
   });
 
   socket.on('user:send', async (data) => {
     try {
       const parsedData = JSON.parse(data);
-      console.log(`${socket.alias} say to public: ${parsedData.message}`);
-      io.emit('message:public', JSON.stringify({ type: 'public', fromUser: `${socket.alias?socket.alias:'anonimo'}`, message: `${parsedData.message}` }));
+      const message = typeof parsedData.message === 'string' ? parsedData.message.trim() : '';
+      if (!message || message.length > MAX_MESSAGE_LENGTH) {
+        emitErrorTo(socket, `Mensaje inválido: debe tener entre 1 y ${MAX_MESSAGE_LENGTH} caracteres`);
+        return;
+      }
+      console.log(`${socket.alias} say to public: ${message}`);
+      io.emit('message:public', JSON.stringify({ type: 'public', fromUser: `${socket.alias?socket.alias:'anonimo'}`, message: `${message}` }));
 
       if (redisConnected) {
-        await redisClient.lPush('messages', JSON.stringify({ fromUser: socket.alias?socket.alias:'anonimo', message: parsedData.message }));
+        await redisClient.lPush('messages', JSON.stringify({ fromUser: socket.alias?socket.alias:'anonimo', message }));
         await redisClient.lTrim('messages', 0, 199);
         console.log('Message saved to Redis');
       }
     } catch (e) {
       console.log(e);
-      io.emit('error', JSON.stringify({ type: 'error', alias: socket.alias, message: `not send: ${data}` }));
+      emitErrorTo(socket, `not send: ${data}`);
     }
   });
 
