@@ -3,8 +3,8 @@ const redis = require('redis');
 
 const redisClient = redis.createClient({
   socket: {
-    host: 'redisdb',
-    port: 6379
+    host: process.env.REDIS_HOST || 'redisdb',
+    port: Number(process.env.REDIS_PORT) || 6379
   },
   maxRetriesPerRequest: 5
 });
