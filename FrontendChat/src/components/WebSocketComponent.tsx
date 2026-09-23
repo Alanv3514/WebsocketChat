@@ -11,11 +11,16 @@ const socket = io(SOCKET_URL, {
   reconnectionDelay: 1000,
 });
 
+interface ChatMessage {
+  fromUser: string;
+  message: string;
+}
+
 function WebSocketComponent() {
   const [alias, setAlias] = useState('');
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [users, setUsers] = useState<string[]>([]);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
