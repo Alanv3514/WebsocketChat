@@ -16,16 +16,17 @@ Plan de trabajo ordenado por valor y riesgo. Cada fase se implementa en commits 
 
 ---
 
-## 🔜 Fase 1 – Redis opcional y robustez del backend
+## ✅ Fase 1 – Redis opcional y robustez del backend (completada)
 
 El backend hoy crashea de forma fea si Redis no está (retry infinito de conexión). Objetivo: modo local sin Redis funcione degradado, y con Redis sea sólido.
 
-- [ ] Manejo de conexión Redis: log claro, reintento con backoff y continuar sin historial si no hay Redis (chat in-memory)
-- [ ] Podar el historial: `lTrim('messages', 0, 199)` tras cada push (evita crecimiento infinito en Redis)
-- [ ] Validación de mensajes: longitud máxima (p. ej. 500 chars), rechazar payload no string en `user:send` y `user:login`
-- [ ] Quiter dependencias sin usar: `jsonwebtoken` y `ws` del `package.json` del backend (o implementar lo que prometen)
+- [x] Manejo de conexión Redis: log claro y continuar sin historial si no hay Redis (chat in-memory)
+- [x] Podar el historial: `lTrim('messages', 0, 199)` tras cada push (evita crecimiento infinito en Redis)
+- [x] Validación de mensajes: longitud máxima (p. ej. 500 chars), rechazar payload no string en `user:send` y `user:login`
+- [x] Quitar dependencias sin usar: `jsonwebtoken` y `ws` del `package.json` del backend
+- [x] Fix extra: historial y errores ya no se broadcastean a todos, solo al socket correspondiente
 
-**Verificación:** backend sin Redis → chat funciona sin historial; con Redis → historial capado a 200; mensajes >500 chars rechazados con evento `error`.
+**Verificación:** backend sin Redis → chat funciona sin historial; mensajes >500 chars rechazados con evento `error` solo al emisor. (La poda de Redis se verifica en Fase 3 con volumen de datos real.)
 
 ---
 
